@@ -1,0 +1,31 @@
+{
+  "name": "ona",
+  "version": "0.1.0",
+  "private": true,
+  "description": "NGN <-> BOB remittance corridor on Stellar, built on Pollar",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "clean": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\"",
+    "typecheck": "tsc --noEmit",
+    "setup:treasury": "tsx --env-file=.env.local scripts/setup-treasury.ts",
+    "seed:demo": "tsx --env-file=.env.local scripts/demo-transfer.ts"
+  },
+  "dependencies": {
+    "@pollar/core": "^0.11.3",
+    "@pollar/react": "^0.11.3",
+    "@stellar/stellar-sdk": "^17.1.0",
+    "next": "^16.3.5",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
