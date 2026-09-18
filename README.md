@@ -2,7 +2,7 @@
 
 **The African leg of the Africa ↔ Latin America corridor. Naira in Lagos, bolivianos in La Paz, settled on Stellar in under a minute.**
 
-TeatherPay is a remittance corridor connecting Nigerian local rails to Pollar's live Bolivian BOB ramp. Pollar runs the Latin American side. This repo is the Nigerian side, plus the orchestration that makes the two halves one payment.
+**TeatherPay** is a remittance corridor connecting Nigerian local rails to Pollar's live Bolivian BOB ramp. Pollar runs the Latin American side. This repo is the Nigerian side, plus the orchestration that makes the two halves one payment.
 
 > Built for the Pollar × Stellar hackathon. Runs on Stellar Testnet. Live demo: `<DEMO_URL>` · Video: `<VIDEO_URL>`
 
@@ -31,7 +31,7 @@ The sender never sees a wallet address, a seed phrase, a gas fee or a trustline.
 | Layer | Status |
 |---|---|
 | Nigerian on-ramp — dedicated virtual accounts (NIP bank transfer) | Working, provider sandbox |
-| Nigerian on-ramp — agent cash-in with confirmation flow | Working, documented semi-manual |
+| Nigerian on-ramp — agent cash-in | Designed, not implemented — see [What's real and what isn't](#whats-real-and-what-isnt) |
 | Nigerian off-ramp — bank payout to any NUBAN | Working, provider sandbox |
 | Pollar wallets, deferred activation, KYC gate | Working, Stellar Testnet |
 | USDC settlement on Stellar with reference memos | Working, Stellar Testnet |
@@ -118,7 +118,9 @@ COMPLETE              │
 
 ## Pollar SDK integration
 
-TeatherPay uses Pollar for everything from the wallet inward. We wrote no Stellar transaction-building code, no key management, and no trustline logic.
+TeatherPay uses Pollar for the entire user-facing path — wallets, KYC, the USDC a sender receives, and the Bolivian payout. No Stellar transaction-building code, key management, or trustline logic touches a user's funds anywhere in this repo.
+
+One deliberate exception: the corridor's own settlement treasury sits outside Pollar's custody on purpose, so `lib/treasury/stellar.ts` does call `@stellar/stellar-sdk` directly (`TransactionBuilder`, `Operation.payment`) to pay a sender's wallet from the reserve. See [why](#why-this-shape) below.
 
 ### 1. Onboarding — no crypto surface area
 
@@ -210,7 +212,7 @@ Limits live in `config/corridor-limits.ts`, not in code paths — they move when
 const outcome = await pollar.runTx(
   'payment',
   { destination: order.senderWallet, amount: order.usdcAmount, asset: USDC },
-  { memo: { type: 'text', value: order.reference } },   // e.g. "ONA-7K3QX2"
+  { memo: { type: 'text', value: order.reference } },   // e.g. "TEATHERPAY-7K3QX2"
 );
 
 if (outcome.status === 'error') {
@@ -294,16 +296,16 @@ Every Nigerian bank app can send to a NUBAN account number, and NIP settles in s
 
 **Why this rail first:** it's the only Nigerian rail where the sender's existing habit — open bank app, paste account number, send — is already the flow. Zero behaviour change is worth more than any feature.
 
-### Rail 2 — Agent cash-in (documented semi-manual)
+### Rail 2 — Agent cash-in (designed, not built)
 
-For senders without a bank app, or sending cash on behalf of someone else.
+For senders without a bank app, or sending cash on behalf of someone else. This is a specification, not running code — no console, no rail adapter exists yet. The design:
 
 1. Sender picks an agent from a list, gets a 6-character order code.
 2. Sender hands cash to the agent.
 3. Agent confirms receipt in the agent console; the amount is debited from the agent's pre-funded NGN float.
 4. Order advances to `NGN_RECEIVED`; agent's float is reconciled against their settlement account daily.
 
-Agents are pre-funded, TeatherPay's exposure is bounded by float, never by trust. This is the same model OPay and Moniepoint agents run on — it works in Nigeria because it already works in Nigeria.
+Agents are pre-funded, so TeatherPay's exposure is bounded by float, never by trust. This is the same model OPay and Moniepoint agents run on — it works in Nigeria because it already works in Nigeria.
 
 ### Rail 3 — NGN payout (reverse direction)
 
@@ -328,20 +330,37 @@ We'd rather show this honestly than pretend a hackathon demo has solved corridor
 
 ```bash
 git clone <REPO_URL>
-cd ona
+cd teatherpay
 npm install
 cp .env.example .env.local
+```
+
+Fill in `.env.local` — the Pollar keys and `USDC_ISSUER` from the dashboard, then:
+
+```bash
+npm run setup:treasury   # generates and funds a testnet treasury keypair, prints the seed to add
 npm run dev
 ```
+
+The full set of variables (see `.env.example` for the current, authoritative version):
 
 ```bash
 # .env.local
 NEXT_PUBLIC_POLLAR_PUBLISHABLE_KEY=pub_testnet_xxxxxxxxxxxx
-POLLAR_SECRET_KEY=sec_testnet_xxxxxxxxxxxx          # server only — never NEXT_PUBLIC_
+POLLAR_SECRET_KEY=sec_testnet_xxxxxxxxxxxx      # server only — never NEXT_PUBLIC_
+
+STELLAR_NETWORK=testnet
+USDC_ISSUER=GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5
+TREASURY_SECRET_SEED=                           # leave blank — setup:treasury fills this in
+SETTLEMENT_LOW_WATER=250
+
+NGN_RAIL=sandbox                                # sandbox | paystack
 NGN_PROVIDER_SECRET_KEY=sk_test_xxxxxxxxxxxx
-NGN_PROVIDER_WEBHOOK_SECRET=whsec_xxxxxxxxxxxx
-DATABASE_URL=postgres://...
-APP_URL=http://localhost:3000
+NGN_PROVIDER_WEBHOOK_SECRET=sandbox-webhook-secret
+NGN_PREFERRED_BANK=wema-bank
+
+NGN_PER_USD_FIXED=1550                          # fixed rate, reproducible demos — remove for the live feed
+DEMO_ASSUMED_TIER=basic
 ```
 
 **Pollar dashboard setup:**
@@ -366,13 +385,13 @@ Every row below is a real transfer executed end to end. Hashes are verifiable on
 
 | # | Date | NGN in | USDC settled | BOB out | Stellar hash | Ramp tx |
 |---|---|---|---|---|---|---|
-| 1 | `<DATE>` | ₦`<AMT>` | `<AMT>` | Bs `<AMT>` | [`<HASH>`](https://testnet.stellar.expert/explorer/testnet/tx/<HASH>) | `<RAMP_ID>` |
+| 1 | `<DATE>` | ₦`<AMT>` | `<AMT>` | Bs `<AMT>` | [`<HASH>`](https://stellar.expert/explorer/testnet/tx/<HASH>) | `<RAMP_ID>` |
 | 2 | | | | | | |
 | 3 | | | | | | |
 
 **Corridor timings observed:** NGN credit to webhook `<X>s` · webhook to Stellar confirmation `<X>s` · Stellar to BOB payout `<X>m`.
 
-**Treasury wallet:** [`<G_ADDRESS>`](https://testnet.stellar.expert/explorer/testnet/account/<G_ADDRESS>)
+**Treasury wallet:** [`<G_ADDRESS>`](https://stellar.expert/explorer/testnet/account/<G_ADDRESS>)
 
 ---
 
@@ -390,10 +409,10 @@ Judges see a lot of demos that blur this line. We'd rather draw it ourselves.
 - The Nigerian provider is in test mode, so naira movements are sandbox credits against sandbox accounts. The integration is the real API with real webhook signatures — only the money is test money. Going live is a key swap and a compliance review, not a rewrite.
 
 **Semi-manual:**
-- Agent cash-in is a documented flow with a working console, run by a human operator. At hackathon scale, one person *is* the agent network.
 - Treasury rebalancing is a dashboard alert and an operator action.
 
 **Not built:**
+- Agent cash-in (Rail 2). The flow described above is a specification, not running code — no console, no rail adapter. The Nigerian leg in currently runs on Rail 1 (virtual accounts) alone.
 - A licence. A Nigerian remittance operator needs CBN authorisation, or a partnership with a licensed IMTO. TeatherPay is designed to slot behind one, not to pretend it doesn't need one.
 - Sanctions screening beyond the KYC provider's own checks.
 - Production NDPA data-residency posture for Nigerian personal data.
@@ -404,6 +423,10 @@ Judges see a lot of demos that blur this line. We'd rather draw it ourselves.
 
 **Why custodial G-addresses instead of passkey smart wallets.** Passkey C-addresses are the better long-term story — genuinely non-custodial, hardware-bound. But Swap, Earn and manual trustlines aren't supported for smart wallets yet, and Earn is load-bearing for our float economics. It's also browser-only, while most of our senders are on a phone. We chose the account type that lets the corridor actually work, and we'll revisit when the feature gap closes.
 
+**Why the treasury writes its own Stellar transactions instead of using a Pollar wallet.** Pollar custodies *user* wallets, which is exactly right for users. Corridor float is the operator's own money and belongs in the operator's own account, under the operator's own key — not behind a login session. So `lib/treasury/stellar.ts` is a plain Stellar keypair calling `@stellar/stellar-sdk` directly. It's the one piece of this codebase that isn't Pollar, and that's on purpose, not an oversight.
+
+**Why orders are a JSON file, not a database.** `lib/orders/store.ts` reads and writes `.data/orders.json` — no Postgres, no ORM, nothing to provision. The whole repo runs from `npm install && npm run dev` with nothing else, which matters more for a five-day build a judge might actually run than a database would. The store is written behind the same interface a real database would sit behind (`getOrder`, `advance`, `claimEvent`, …), so swapping it is a change to two functions, not to anything that calls them.
+
 **Why USDC and not a naira stablecoin.** cNGN exists, and a direct NGN-stable → BOB path would be shorter. But USDC has the deepest Stellar liquidity and is what Pollar's BOB ramp prices against. One less thin market between the sender and the recipient.
 
 **Why memos over a database-only reference.** The reference survives on-chain. If TeatherPay disappears tomorrow, the sender can still prove what they sent and when, from a public ledger, with no cooperation from us. Remittance users have been burned by operators before.
@@ -412,29 +435,67 @@ Judges see a lot of demos that blur this line. We'd rather draw it ourselves.
 
 ---
 
+## What's next
 
+- Second African leg — Ghana (mobile money) and Kenya (M-Pesa) reuse the entire order machine; only the rail adapter changes.
+- Recurring transfers for trade counterparties who settle on the same cycle every month.
+- x402 agent payments — a purchasing agent that settles supplier invoices across the corridor without a human in the loop.
+- Partnership route with a licensed IMTO for the Nigerian side.
+
+---
 
 ## Repo layout
 
 ```
-ona/
+teatherpay/
 ├── app/
-│   ├── layout.tsx                    # PollarProvider
-│   ├── send/                         # quote → account number → status
-│   ├── receipt/[orderId]/            # on-chain receipt
-│   ├── agent/                        # agent cash-in console
+│   ├── layout.tsx                     # PollarProvider + Pollar's own stylesheet
+│   ├── page.tsx                       # the send flow: amount → sign-in → account number → payout → receipt
+│   ├── globals.css                    # corridor design tokens
+│   ├── operator/page.tsx              # treasury health, order queue, reserve float, ramp-country check
+│   ├── receipt/[id]/page.tsx          # on-chain receipt, built from the order's event log
+│   ├── components/
+│   │   ├── Rail.tsx                   # the Lagos ↔ La Paz status rail
+│   │   ├── PayoutPanel.tsx            # Bolivian leg — quote, provider-declared beneficiary form, off-ramp
+│   │   ├── OrderQueue.tsx             # operator's live order list
+│   │   ├── OperatorFloat.tsx          # reserve wallet — Earn deposit/withdraw, settlement top-up
+│   │   ├── RampStatus.tsx             # which countries this app's ramp anchors actually support
+│   │   └── order-status.ts            # shared state → position/caption/colour, used by Rail and OrderQueue
 │   └── api/
-│       ├── webhooks/ngn/route.ts     # provider webhook, signature-verified, idempotent
-│       ├── kyc/approved/route.ts     # POST /v1/wallets/fund
-│       ├── orders/route.ts           # quote + order creation
-│       └── cron/reconcile/route.ts   # ramp + provider reconciliation
+│       ├── quote/route.ts             # NGN → USDC pricing
+│       ├── orders/route.ts            # order creation, issues the virtual account
+│       ├── orders/[id]/route.ts       # order read + client-reportable state transitions
+│       ├── webhooks/ngn/route.ts      # provider webhook — signature-verified, idempotent
+│       ├── kyc/approved/route.ts      # the compliance gate — POST /v1/wallets/fund
+│       ├── treasury/status/route.ts   # public treasury balance + address, for the operator page
+│       └── demo/credit/route.ts       # fires a signed sandbox credit at our own webhook
 ├── lib/
-│   ├── pollar.ts                     # client + treasury helpers
-│   ├── rails/ngn/                    # virtual accounts, payouts, agents
-│   ├── orders/state-machine.ts
-│   └── treasury/float.ts
-├── config/corridor-limits.ts
-└── prisma/schema.prisma
+│   ├── orders/{types,store,settle}.ts       # state machine, JSON-file store, settlement
+│   ├── rails/ngn/{rail,sandbox,paystack,index}.ts  # the NgnRail interface + two implementations
+│   ├── pollar/{server,ramp}.ts               # wallet activation; the Bolivian leg
+│   ├── treasury/{stellar,float}.ts           # settlement keypair; reserve float + Earn
+│   └── corridor/pricing.ts                   # limits, KYC tiering, FX quote
+├── scripts/
+│   ├── setup-treasury.ts              # generate/fund a testnet treasury keypair
+│   └── demo-transfer.ts               # one-command NGN → USDC proof run
+└── .data/orders.json                  # the order store — created at runtime, gitignored
 ```
 
+No `prisma/` and no database. See [Why orders are a JSON file, not a database](#why-this-shape).
+
 ---
+
+## Team
+
+`<NAME>` — `<ROLE>` — `<CONTACT>`
+
+Built in five days. Thanks to the Pollar team for running the Bolivian side of every test run.
+
+---
+
+## Links
+
+- Live demo — `<DEMO_URL>`
+- Demo video — `<VIDEO_URL>`
+- Pollar docs — https://docs.pollar.xyz
+- Stellar Expert (testnet) — https://stellar.expert/explorer/testnet

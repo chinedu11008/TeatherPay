@@ -4,7 +4,7 @@ import '@pollar/react/styles.css';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Ọ̀nà — naira to bolivianos',
+  title: 'TeatherPay — naira to bolivianos',
   description:
     'Send money from Nigeria to Bolivia. Local rails on both ends, Stellar in the middle.',
 };
