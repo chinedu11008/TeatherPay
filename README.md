@@ -412,14 +412,7 @@ Judges see a lot of demos that blur this line. We'd rather draw it ourselves.
 
 ---
 
-## What's next
 
-- Second African leg — Ghana (mobile money) and Kenya (M-Pesa) reuse the entire order machine; only the rail adapter changes.
-- Recurring transfers for trade counterparties who settle on the same cycle every month.
-- x402 agent payments — a purchasing agent that settles supplier invoices across the corridor without a human in the loop.
-- Partnership route with a licensed IMTO for the Nigerian side.
-
----
 
 ## Repo layout
 
@@ -445,18 +438,3 @@ ona/
 ```
 
 ---
-
-## Team
-
-`<NAME>` — `<ROLE>` — `<CONTACT>`
-
-Built in five days. Thanks to the Pollar team for running the Bolivian side of every test run.
-
----
-
-## Links
-
-- Live demo — `<DEMO_URL>`
-- Demo video — `<VIDEO_URL>`
-- Pollar docs — https://docs.pollar.xyz
-- Stellar Expert (testnet) — https://testnet.stellar.expert
