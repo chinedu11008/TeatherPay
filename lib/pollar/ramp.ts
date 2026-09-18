@@ -63,7 +63,7 @@ export async function quoteBobPayout(
 ): Promise<RampQuote[]> {
   const res = await client.getRampsQuote({
     country: CORRIDOR.to.country,
-    currency: CORRIDOR.to.currency,
+    currency: CORRIDOR.asset,
     amount: Number(usdcAmount),
     direction: 'offramp',
   });
@@ -111,7 +111,7 @@ export async function createBobPayout(
   const res = await client.createOffRamp({
     quoteId: input.quoteId,
     amount: Number(input.usdcAmount),
-    currency: CORRIDOR.to.currency,
+    currency: CORRIDOR.asset,
     country: CORRIDOR.to.country,
     walletAddress: input.walletAddress,
     fullName: input.fullName,
