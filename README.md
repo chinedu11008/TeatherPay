@@ -1,8 +1,8 @@
-# Ọ̀nà
+# TeatherPay
 
 **The African leg of the Africa ↔ Latin America corridor. Naira in Lagos, bolivianos in La Paz, settled on Stellar in under a minute.**
 
-*Ọ̀nà* (Yoruba: *the road, the way*) is a remittance corridor connecting Nigerian local rails to Pollar's live Bolivian BOB ramp. Pollar runs the Latin American side. This repo is the Nigerian side, plus the orchestration that makes the two halves one payment.
+TeatherPay is a remittance corridor connecting Nigerian local rails to Pollar's live Bolivian BOB ramp. Pollar runs the Latin American side. This repo is the Nigerian side, plus the orchestration that makes the two halves one payment.
 
 > Built for the Pollar × Stellar hackathon. Runs on Stellar Testnet. Live demo: `<DEMO_URL>` · Video: `<VIDEO_URL>`
 
@@ -14,10 +14,10 @@ There are roughly 200,000 Chinese, Lebanese, Indian and West African traders mov
 
 Neither side is short of local rails. Nigeria has instant inter-bank transfers (NIP) that settle in seconds, and a dense agent network for cash. Bolivia has Pollar's licensed BOB ramp. The missing piece has always been the bridge between them.
 
-Ọ̀nà makes that bridge a Stellar payment.
+TeatherPay makes that bridge a Stellar payment.
 
 - **Sender** funds a unique naira account number from any Nigerian bank app, or hands cash to a local agent.
-- **Ọ̀nà** converts to USDC and moves it on Stellar. Sub-cent fees, ~5 second finality.
+- **TeatherPay** converts to USDC and moves it on Stellar. Sub-cent fees, ~5 second finality.
 - **Pollar's BOB ramp** pays out bolivianos to the recipient in Bolivia.
 
 The sender never sees a wallet address, a seed phrase, a gas fee or a trustline. They see: *"Send ₦150,000 to 8012345678. Ana receives Bs 640 in about 4 minutes."*
@@ -50,7 +50,7 @@ flowchart LR
     subgraph NG["🇳🇬 Nigeria — this repo"]
         A["Sender<br/>bank app or agent"]
         B["Virtual account<br/>NUBAN / NIP"]
-        C["Ọ̀nà backend<br/>order ledger"]
+        C["TeatherPay backend<br/>order ledger"]
         D["NGN treasury"]
     end
 
@@ -77,7 +77,7 @@ flowchart LR
     style BO fill:#faeeda,stroke:#ba7517
 ```
 
-The reverse direction (Bolivia → Nigeria) runs the same machine backwards: Pollar on-ramps BOB to USDC, Ọ̀nà off-ramps USDC to a Nigerian bank account.
+The reverse direction (Bolivia → Nigeria) runs the same machine backwards: Pollar on-ramps BOB to USDC, TeatherPay off-ramps USDC to a Nigerian bank account.
 
 ---
 
@@ -118,7 +118,7 @@ COMPLETE              │
 
 ## Pollar SDK integration
 
-Ọ̀nà uses Pollar for everything from the wallet inward. We wrote no Stellar transaction-building code, no key management, and no trustline logic.
+TeatherPay uses Pollar for everything from the wallet inward. We wrote no Stellar transaction-building code, no key management, and no trustline logic.
 
 ### 1. Onboarding — no crypto surface area
 
@@ -303,7 +303,7 @@ For senders without a bank app, or sending cash on behalf of someone else.
 3. Agent confirms receipt in the agent console; the amount is debited from the agent's pre-funded NGN float.
 4. Order advances to `NGN_RECEIVED`; agent's float is reconciled against their settlement account daily.
 
-Agents are pre-funded, so Ọ̀nà's exposure is bounded by float, never by trust. This is the same model OPay and Moniepoint agents run on — it works in Nigeria because it already works in Nigeria.
+Agents are pre-funded, TeatherPay's exposure is bounded by float, never by trust. This is the same model OPay and Moniepoint agents run on — it works in Nigeria because it already works in Nigeria.
 
 ### Rail 3 — NGN payout (reverse direction)
 
@@ -394,7 +394,7 @@ Judges see a lot of demos that blur this line. We'd rather draw it ourselves.
 - Treasury rebalancing is a dashboard alert and an operator action.
 
 **Not built:**
-- A licence. A Nigerian remittance operator needs CBN authorisation, or a partnership with a licensed IMTO. Ọ̀nà is designed to slot behind one, not to pretend it doesn't need one.
+- A licence. A Nigerian remittance operator needs CBN authorisation, or a partnership with a licensed IMTO. TeatherPay is designed to slot behind one, not to pretend it doesn't need one.
 - Sanctions screening beyond the KYC provider's own checks.
 - Production NDPA data-residency posture for Nigerian personal data.
 
@@ -406,7 +406,7 @@ Judges see a lot of demos that blur this line. We'd rather draw it ourselves.
 
 **Why USDC and not a naira stablecoin.** cNGN exists, and a direct NGN-stable → BOB path would be shorter. But USDC has the deepest Stellar liquidity and is what Pollar's BOB ramp prices against. One less thin market between the sender and the recipient.
 
-**Why memos over a database-only reference.** The reference survives on-chain. If Ọ̀nà disappears tomorrow, the sender can still prove what they sent and when, from a public ledger, with no cooperation from us. Remittance users have been burned by operators before.
+**Why memos over a database-only reference.** The reference survives on-chain. If TeatherPay disappears tomorrow, the sender can still prove what they sent and when, from a public ledger, with no cooperation from us. Remittance users have been burned by operators before.
 
 **Why deferred funding is the whole architecture, not a cost optimisation.** It collapses "verify the user" and "activate the account" into one gate controlled entirely by our backend. There is no code path where an unverified user has a transactable wallet. That property is hard to retrofit and easy to get right from the start.
 
